@@ -4,7 +4,6 @@
 #include <time.h>
 
 static const double TAU = 6.283185307179586;
-static const double PI = 0.5 * TAU;
 
 double lerp(double a, double b, double t) {
 	return a + t * (b - a);
@@ -137,6 +136,28 @@ static double sdf(vec3 p) {
 	return sd_torus(p, 0.4, 0.2);
 }
 
+static vec3 normal(vec3 p) {
+	static const double DELTA = 0.001;
+	vec3 dx = { DELTA, 0.0, 0.0 };
+	vec3 dy = { 0.0, DELTA, 0.0 };
+	vec3 dz = { 0.0, 0.0, DELTA };
+	return vec3_normalize((vec3) {
+		.x = sdf(vec3_add(p, dx)) - sdf(p),
+		.y = sdf(vec3_add(p, dy)) - sdf(p),
+		.z = sdf(vec3_add(p, dz)) - sdf(p),
+	});
+}
+
+static double shade(vec3 rd, vec3 n) {
+	static const double R = 0.577350269;
+	static const vec3 SUN = (vec3) { -R, -R, R };
+	static const double SOFT = 0.1;
+	vec3 h = vec3_normalize(vec3_add(vec3_scale(rd, -1.0), vec3_scale(SUN, -1.0)));
+	double diffuse = 0.5 * fmax(SOFT, -vec3_dot(n, SUN));
+	double specular = 2.0 * pow(vec3_dot(n, h), 32.0);
+	return diffuse + specular;
+}
+
 static double march(vec3 ro, vec3 rd) {
 	static const int MAX_STEPS = 32;
 	static const double MAX_DIST = 32.0;
@@ -147,7 +168,9 @@ static double march(vec3 ro, vec3 rd) {
 		vec3 p = vec3_add(ro, vec3_scale(rd, t));
 		double d = sdf(p);
 		if (d < MIN_DIST) {
-			return 1.0 - (double)i / MAX_STEPS;
+			vec3 n = normal(p);
+			return shade(rd, n);
+			/* return 1.0 - (double)i / MAX_STEPS; */
 		}
 		t += d;
 	}
@@ -164,7 +187,7 @@ static char quantize(double v) {
 }
 
 void sleep(clock_t t) {
-	volatile clock_t t0 = clock();
+	clock_t t0 = clock();
 	while (clock() - t0 < t);
 
 }
@@ -175,7 +198,7 @@ int main(void) {
 	for (;;) {
 		printf("\x1b[2J\x1b[H");
 		for (int y = 0; y < IMG_WIDTH; y++) {
-			double ny = 2.0 * y / (double)(IMG_HEIGHT - 1) - 1.0;
+			double ny = -(2.0 * y / (double)(IMG_HEIGHT - 1) - 1.0);
 			for (int x = 0; x < IMG_WIDTH; x++) {
 				double nx = 2.0 * x / (double)(IMG_WIDTH - 1) - 1.0;
 				vec3 rd = vec3_normalize((vec3) { nx, ny, 1.0 });
@@ -187,7 +210,7 @@ int main(void) {
 			putchar('\n');
 		}
 		donut_angle += 0.01 * TAU;
-		sleep(10000);
+		sleep(30000);
 	}
 	return 0;
 }

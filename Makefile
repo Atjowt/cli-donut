@@ -1,9 +1,7 @@
 .PHONY: all run clean
 
 CC := clang
-CFLAGS := -std=c99 -pedantic -Wall -Wextra -lm
-CFLAGS += -Ofast
-# CFLAGS += -g
+CFLAGS := -std=c99 -pedantic -O3 -Wall -Wextra -lm
 
 all: donut
 
